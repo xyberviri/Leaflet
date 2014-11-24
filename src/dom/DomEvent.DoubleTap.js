@@ -4,64 +4,44 @@
 
 L.extend(L.DomEvent, {
 
-	_touchstart: L.Browser.msTouch ? 'MSPointerDown' : 'touchstart',
-	_touchend: L.Browser.msTouch ? 'MSPointerUp' : 'touchend',
+	_touchstart: L.Browser.msPointer ? 'MSPointerDown' : L.Browser.pointer ? 'pointerdown' : 'touchstart',
+	_touchend: L.Browser.msPointer ? 'MSPointerUp' : L.Browser.pointer ? 'pointerup' : 'touchend',
 
 	// inspired by Zepto touch code by Thomas Fuchs
 	addDoubleTapListener: function (obj, handler, id) {
-		var last,
+		var last, touch,
 		    doubleTap = false,
-		    delay = 250,
-		    touch,
-		    pre = '_leaflet_',
-		    touchstart = this._touchstart,
-		    touchend = this._touchend,
-		    trackedTouches = [];
+		    delay = 250;
 
 		function onTouchStart(e) {
 			var count;
 
-			if (L.Browser.msTouch) {
-				trackedTouches.push(e.pointerId);
-				count = trackedTouches.length;
+			if (L.Browser.pointer) {
+				count = L.DomEvent._pointersCount;
 			} else {
 				count = e.touches.length;
 			}
-			if (count > 1) {
-				return;
-			}
+
+			if (count > 1) { return; }
 
 			var now = Date.now(),
-				delta = now - (last || now);
+			    delta = now - (last || now);
 
 			touch = e.touches ? e.touches[0] : e;
 			doubleTap = (delta > 0 && delta <= delay);
 			last = now;
 		}
 
-		function onTouchEnd(e) {
-			if (L.Browser.msTouch) {
-				var idx = trackedTouches.indexOf(e.pointerId);
-				if (idx === -1) {
-					return;
-				}
-				trackedTouches.splice(idx, 1);
-			}
-
+		function onTouchEnd() {
 			if (doubleTap) {
-				if (L.Browser.msTouch) {
+				if (L.Browser.pointer) {
 					// work around .type being readonly with MSPointer* events
-					var newTouch = { },
-						prop;
+					var newTouch = {},
+						prop, i;
 
-					// jshint forin:false
-					for (var i in touch) {
+					for (i in touch) {
 						prop = touch[i];
-						if (typeof prop === 'function') {
-							newTouch[i] = prop.bind(touch);
-						} else {
-							newTouch[i] = prop;
-						}
+						newTouch[i] = prop && prop.bind ? prop.bind(touch) : prop;
 					}
 					touch = newTouch;
 				}
@@ -70,33 +50,25 @@ L.extend(L.DomEvent, {
 				last = null;
 			}
 		}
+
+		var pre = '_leaflet_',
+		    touchstart = this._touchstart,
+		    touchend = this._touchend;
+
 		obj[pre + touchstart + id] = onTouchStart;
 		obj[pre + touchend + id] = onTouchEnd;
 
-		// on msTouch we need to listen on the document, otherwise a drag starting on the map and moving off screen
-		// will not come through to us, so we will lose track of how many touches are ongoing
-		var endElement = L.Browser.msTouch ? document.documentElement : obj;
-
 		obj.addEventListener(touchstart, onTouchStart, false);
-		endElement.addEventListener(touchend, onTouchEnd, false);
-
-		if (L.Browser.msTouch) {
-			endElement.addEventListener('MSPointerCancel', onTouchEnd, false);
-		}
-
+		obj.addEventListener(touchend, onTouchEnd, false);
 		return this;
 	},
 
 	removeDoubleTapListener: function (obj, id) {
-		var pre = '_leaflet_';
+		var pre = '_leaflet_',
+		    touchend = obj[pre + this._touchend + id];
 
 		obj.removeEventListener(this._touchstart, obj[pre + this._touchstart + id], false);
-		(L.Browser.msTouch ? document.documentElement : obj).removeEventListener(
-		        this._touchend, obj[pre + this._touchend + id], false);
-
-		if (L.Browser.msTouch) {
-			document.documentElement.removeEventListener('MSPointerCancel', obj[pre + this._touchend + id], false);
-		}
+		obj.removeEventListener(this._touchend, touchend, false);
 
 		return this;
 	}

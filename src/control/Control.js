@@ -37,6 +37,7 @@ L.Control = L.Class.extend({
 	},
 
 	addTo: function (map) {
+		this.remove();
 		this._map = map;
 
 		var container = this._container = this.onAdd(map),
@@ -54,18 +55,26 @@ L.Control = L.Class.extend({
 		return this;
 	},
 
-	removeFrom: function (map) {
-		var pos = this.getPosition(),
-		    corner = map._controlCorners[pos];
-
-		corner.removeChild(this._container);
-		this._map = null;
-
-		if (this.onRemove) {
-			this.onRemove(map);
+	remove: function () {
+		if (!this._map) {
+			return this;
 		}
 
+		L.DomUtil.remove(this._container);
+
+		if (this.onRemove) {
+			this.onRemove(this._map);
+		}
+
+		this._map = null;
+
 		return this;
+	},
+
+	_refocusOnMap: function () {
+		if (this._map) {
+			this._map.getContainer().focus();
+		}
 	}
 });
 
@@ -83,7 +92,7 @@ L.Map.include({
 	},
 
 	removeControl: function (control) {
-		control.removeFrom(this);
+		control.remove();
 		return this;
 	},
 
@@ -106,6 +115,6 @@ L.Map.include({
 	},
 
 	_clearControlPos: function () {
-		this._container.removeChild(this._controlContainer);
+		L.DomUtil.remove(this._controlContainer);
 	}
 });

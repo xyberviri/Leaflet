@@ -16,16 +16,13 @@ L.Class.extend = function (props) {
 		}
 
 		// call all constructor hooks
-		if (this._initHooks) {
-			this.callInitHooks();
-		}
+		this.callInitHooks();
 	};
 
-	// instantiate class without calling constructor
-	var F = function () {};
-	F.prototype = this.prototype;
+	// jshint camelcase: false
+	var parentProto = NewClass.__super__ = this.prototype;
 
-	var proto = new F();
+	var proto = L.Util.create(parentProto);
 	proto.constructor = NewClass;
 
 	NewClass.prototype = proto;
@@ -50,8 +47,8 @@ L.Class.extend = function (props) {
 	}
 
 	// merge options
-	if (props.options && proto.options) {
-		props.options = L.extend({}, proto.options, props.options);
+	if (proto.options) {
+		props.options = L.Util.extend(L.Util.create(proto.options), props.options);
 	}
 
 	// mix given properties into the prototype
@@ -59,17 +56,13 @@ L.Class.extend = function (props) {
 
 	proto._initHooks = [];
 
-	var parent = this;
-	// jshint camelcase: false
-	NewClass.__super__ = parent.prototype;
-
 	// add method for calling all hooks
 	proto.callInitHooks = function () {
 
 		if (this._initHooksCalled) { return; }
 
-		if (parent.prototype.callInitHooks) {
-			parent.prototype.callInitHooks.call(this);
+		if (parentProto.callInitHooks) {
+			parentProto.callInitHooks.call(this);
 		}
 
 		this._initHooksCalled = true;
